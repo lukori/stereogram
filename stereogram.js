@@ -21,7 +21,7 @@
  * @param {number}  [opts.height=600]      - output height in px
  * @param {number}  [opts.eyeSep=300]      - eye separation E in px (max pattern period)
  * @param {number}  [opts.mu=0.3333]       - depth factor (fraction of eyeSep used as depth range)
- * @param {number}  [opts.patternScale=1]  - scale applied to the pattern tile (1 = native size)
+ * @param {number}  [opts.patternRepeats=1]- times the pattern tiles within one separation band (>=1)
  * @param {boolean} [opts.invert=false]    - invert depth (swap near/far)
  * @param {boolean} [opts.popIn=false]     - false = shape pops OUT toward viewer, true = sinks IN
  */
@@ -30,7 +30,7 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
   const height = Math.max(1, Math.round(opts.height || 600));
   const eyeSep = Math.max(2, Math.round(opts.eyeSep || 300));
   const mu = clamp(opts.mu ?? 1 / 3, 0.01, 0.9);
-  const patternScale = Math.max(0.05, opts.patternScale || 1);
+  const patternRepeats = Math.max(1, Math.round(opts.patternRepeats || 1));
   const invert = !!opts.invert;
   const popIn = !!opts.popIn;
 
@@ -48,7 +48,11 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
   }
 
   // --- Pattern lookup canvas tiled across the full output size ---------------
-  const patLookup = buildPatternLookup(patternCanvas, width, height, patternScale);
+  // CRITICAL: the pattern's horizontal period must equal the far-plane (background)
+  // separation s0, otherwise the unconstrained pixels carry a second, competing
+  // period that shows up as a ghosted / doubled wallpaper. Lock the band width to s0.
+  const s0 = Math.max(2, separation(0, mu, eyeSep));
+  const patLookup = buildPatternLookup(patternCanvas, width, height, s0, patternRepeats);
   const pat = patLookup.data;
 
   // --- Output buffer ---------------------------------------------------------
@@ -140,24 +144,34 @@ function sampleToImageData(src, w, h) {
 }
 
 /**
- * Tile the (scaled) pattern across a (w,h) canvas and return ImageData, so any
- * output pixel has a defined seed color.
+ * Tile the pattern across a (w,h) canvas with a fixed horizontal period and
+ * return ImageData, so any output pixel has a defined seed color.
+ *
+ * The tile band is exactly `period` px wide (= the background separation), with
+ * the pattern drawn `reps` times across it. Because the band width matches the
+ * stereo separation, the resulting wallpaper resolves cleanly with no competing
+ * period (no ghosting/doubling). `reps` controls how small the pattern looks.
  */
-function buildPatternLookup(patternCanvas, w, h, scale) {
+function buildPatternLookup(patternCanvas, w, h, period, reps) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
 
-  const tileW = Math.max(1, Math.round(patternCanvas.width * scale));
-  const tileH = Math.max(1, Math.round(patternCanvas.height * scale));
+  const tileW = Math.max(1, Math.round(period));
+  const copyW = tileW / reps; // each pattern copy fills 1/reps of the band
+  const copyH = (patternCanvas.height * copyW) / patternCanvas.width; // keep aspect
+  const tileH = Math.max(1, Math.round(copyH));
 
   const tile = document.createElement('canvas');
   tile.width = tileW;
   tile.height = tileH;
   const tctx = tile.getContext('2d');
   tctx.imageSmoothingEnabled = true;
-  tctx.drawImage(patternCanvas, 0, 0, tileW, tileH);
+  // Draw `reps` identical copies side by side; the band wraps seamlessly at tileW.
+  for (let i = 0; i < reps; i++) {
+    tctx.drawImage(patternCanvas, i * copyW, 0, copyW, tileH);
+  }
 
   ctx.fillStyle = ctx.createPattern(tile, 'repeat');
   ctx.fillRect(0, 0, w, h);

@@ -33,7 +33,7 @@ const sources = { pattern: null, depth: null };
 const DEFAULTS = {
   depthStrength: 0.33,
   eyeSep: 300,
-  patternScale: 1,
+  patternScale: 1, // pattern repeats per separation band
   outWidth: 900,
   outHeight: 600,
   invert: false,
@@ -89,7 +89,7 @@ function regenerate() {
     height: clampNum(els.outHeight.value, 100, 2400, 600),
     eyeSep: Number(els.eyeSep.value),
     mu: Number(els.depthStrength.value),
-    patternScale: Number(els.patternScale.value),
+    patternRepeats: Number(els.patternScale.value),
     invert: els.invert.checked,
     popIn: els.popIn.checked,
   };
@@ -166,7 +166,7 @@ function wireDropzone(kind, dropEl, inputEl) {
 function syncLabels() {
   els.depthStrengthVal.textContent = Number(els.depthStrength.value).toFixed(2);
   els.eyeSepVal.textContent = `${els.eyeSep.value} px`;
-  els.patternScaleVal.textContent = `${Number(els.patternScale.value).toFixed(2)}×`;
+  els.patternScaleVal.textContent = `${Number(els.patternScale.value)}×`;
 }
 
 function wireControls() {
