@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stereogram",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5180"],
+      "port": 5180
+    }
+  ]
+}

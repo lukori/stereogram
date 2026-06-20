@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stereogram Creator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Stereogram Creator</h1>
+    <p class="tagline">Turn a pattern + depth map into a hidden-3D "Magic Eye" image.</p>
+  </header>
+
+  <main class="layout">
+    <!-- ── Controls ──────────────────────────────────────────────── -->
+    <section class="panel controls" aria-label="Controls">
+      <div class="field">
+        <h2>1. Pattern</h2>
+        <label class="dropzone" id="patternDrop" for="patternInput">
+          <img class="thumb" id="patternThumb" alt="" hidden />
+          <span class="dz-text">Drop a pattern image here<br /><small>or click to browse</small></span>
+          <input type="file" id="patternInput" accept="image/*" hidden />
+        </label>
+      </div>
+
+      <div class="field">
+        <h2>2. Depth map</h2>
+        <label class="dropzone" id="depthDrop" for="depthInput">
+          <img class="thumb" id="depthThumb" alt="" hidden />
+          <span class="dz-text">Drop a depth map here<br /><small>white = near, black = far</small></span>
+          <input type="file" id="depthInput" accept="image/*" hidden />
+        </label>
+      </div>
+
+      <div class="field">
+        <h2>3. Settings</h2>
+
+        <div class="ctrl">
+          <label for="depthStrength">Depth strength <span class="val" id="depthStrengthVal">0.33</span></label>
+          <input type="range" id="depthStrength" min="0.05" max="0.7" step="0.01" value="0.33" />
+        </div>
+
+        <div class="ctrl">
+          <label for="eyeSep">Eye separation <span class="val" id="eyeSepVal">300 px</span></label>
+          <input type="range" id="eyeSep" min="80" max="500" step="2" value="300" />
+        </div>
+
+        <div class="ctrl">
+          <label for="patternScale">Pattern scale <span class="val" id="patternScaleVal">1.00×</span></label>
+          <input type="range" id="patternScale" min="0.2" max="3" step="0.05" value="1" />
+        </div>
+
+        <div class="ctrl two">
+          <div>
+            <label for="outWidth">Width</label>
+            <input type="number" id="outWidth" min="100" max="2400" step="10" value="900" />
+          </div>
+          <div>
+            <label for="outHeight">Height</label>
+            <input type="number" id="outHeight" min="100" max="2400" step="10" value="600" />
+          </div>
+        </div>
+
+        <div class="ctrl toggles">
+          <label class="chk"><input type="checkbox" id="invert" /> Invert depth</label>
+          <label class="chk"><input type="checkbox" id="popIn" /> Pop in (sink)</label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="downloadBtn" class="btn primary" disabled>Download PNG</button>
+        <button id="resetBtn" class="btn">Reset</button>
+      </div>
+
+      <p class="hint" id="status">Upload a pattern and a depth map to begin.</p>
+    </section>
+
+    <!-- ── Preview ───────────────────────────────────────────────── -->
+    <section class="panel preview" aria-label="Preview">
+      <div class="canvas-wrap">
+        <canvas id="output" width="900" height="600"></canvas>
+      </div>
+      <p class="viewtip">
+        👁️ <strong>How to see it:</strong> relax your eyes and look "through" the image
+        (wall-eyed) until the repeating pattern drifts together — the hidden shape will float out.
+      </p>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

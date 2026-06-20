@@ -1,0 +1,207 @@
+:root {
+  --bg: #0f1115;
+  --panel: #181b22;
+  --panel-2: #20242e;
+  --line: #2c313c;
+  --text: #e7e9ee;
+  --muted: #99a1b3;
+  --accent: #5b8cff;
+  --accent-2: #3f6fe0;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.topbar {
+  padding: 22px 28px 10px;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+.tagline {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* layout */
+.layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  padding: 16px 28px 40px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.controls .field { margin-bottom: 18px; }
+.controls h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+/* dropzones */
+.dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 96px;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover { border-color: var(--accent); }
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: #232a3a;
+}
+.dropzone small { color: var(--muted); opacity: 0.8; }
+.thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dropzone.has-image .dz-text {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.dropzone.has-image .dz-text small,
+.dropzone.has-image .dz-text br { display: none; }
+
+/* controls */
+.ctrl { margin-bottom: 14px; }
+.ctrl label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.ctrl .val { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.ctrl.two {
+  display: flex;
+  gap: 12px;
+}
+.ctrl.two > div { flex: 1; }
+input[type="number"] {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.toggles {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.chk {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.chk input { accent-color: var(--accent); }
+
+/* actions */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent-2); border-color: var(--accent-2); }
+.btn.primary:hover { background: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+/* preview */
+.preview { display: flex; flex-direction: column; gap: 14px; }
+.canvas-wrap {
+  background:
+    linear-gradient(45deg, #14161c 25%, transparent 25%) 0 0/20px 20px,
+    linear-gradient(-45deg, #14161c 25%, transparent 25%) 0 10px/20px 20px,
+    linear-gradient(45deg, transparent 75%, #14161c 75%) 10px -10px/20px 20px,
+    linear-gradient(-45deg, transparent 75%, #14161c 75%) -10px 0/20px 20px,
+    #1a1d24;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+#output {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+}
+.viewtip {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.viewtip strong { color: var(--text); }
