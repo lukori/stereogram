@@ -29,12 +29,22 @@ hidden shape will float out of the surface.
 
 | Control | What it does |
 | --- | --- |
-| **Depth strength** (`mu`) | How much apparent depth the shape has. Higher = more dramatic relief (but harder to fuse). |
-| **Eye separation** (`E`) | The base pattern period in pixels (~ the viewer's eye spacing). ~300px suits a screen at arm's length. |
-| **Pattern scale** | Scales the pattern tile up/down before tiling. |
+| **Pattern repeats** | How many times the pattern tiles within one separation band (1 = one motif per band, like the references). Higher = smaller pattern. |
 | **Width / Height** | Output size. Height defaults to the depth map's aspect ratio. |
 | **Invert depth** | Swap near/far (use if your depth maps are black = near). |
 | **Pop in (sink)** | Make the shape recede into the surface instead of popping out. |
+
+### Automatic eye separation & depth (learned from references)
+
+Eye separation and depth strength are **not** exposed as controls — they're fixed
+to proportions measured from real Magic-Eye stereograms (`references/`):
+
+- **Eye separation** → background pattern period = **13% of the output width**
+  (≈ 7.6 repeats across), so it scales correctly with any output size.
+- **Depth strength** → `mu = 0.36` (the average implied by the references).
+
+Both live as `SEP_FRACTION` and `DEPTH_MU` constants at the top of
+[`stereogram.js`](stereogram.js).
 
 ## How it works
 

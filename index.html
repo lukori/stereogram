@@ -37,19 +37,11 @@
         <h2>3. Settings</h2>
 
         <div class="ctrl">
-          <label for="depthStrength">Depth strength <span class="val" id="depthStrengthVal">0.33</span></label>
-          <input type="range" id="depthStrength" min="0.05" max="0.7" step="0.01" value="0.33" />
-        </div>
-
-        <div class="ctrl">
-          <label for="eyeSep">Eye separation <span class="val" id="eyeSepVal">300 px</span></label>
-          <input type="range" id="eyeSep" min="80" max="500" step="2" value="300" />
-        </div>
-
-        <div class="ctrl">
           <label for="patternScale">Pattern repeats <span class="val" id="patternScaleVal">1×</span></label>
           <input type="range" id="patternScale" min="1" max="6" step="1" value="1" />
         </div>
+        <p class="rule-note">Eye separation &amp; depth are set automatically to match
+          classic Magic-Eye proportions (≈13% of width, derived from references).</p>
 
         <div class="ctrl two">
           <div>

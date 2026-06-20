@@ -9,6 +9,18 @@
 //
 // Depth convention: Z is the normalized luminance of the depth map in [0,1].
 // White (Z=1) = near (small separation, pops toward the viewer); black = far.
+//
+// RULES (measured from the reference stereograms in references/):
+//   - Background separation is a fixed fraction of the output width — the two
+//     real Magic-Eye references both sit at ~13% of width (~7.6 repeats across).
+//   - Depth strength mu ~ 0.33–0.40 in those references; we use 0.36.
+// These are hard-coded so the output matches the references without manual
+// "eye separation" / "depth strength" tuning.
+
+// Background separation s0 as a fraction of output width (s0 = SEP_FRACTION * width).
+export const SEP_FRACTION = 0.13;
+// Depth factor (apparent relief). Larger = more pop, harder to fuse.
+export const DEPTH_MU = 0.36;
 
 /**
  * Generate a stereogram into an output canvas.
@@ -19,8 +31,6 @@
  * @param {Object} opts
  * @param {number}  [opts.width=800]       - output width in px
  * @param {number}  [opts.height=600]      - output height in px
- * @param {number}  [opts.eyeSep=300]      - eye separation E in px (max pattern period)
- * @param {number}  [opts.mu=0.3333]       - depth factor (fraction of eyeSep used as depth range)
  * @param {number}  [opts.patternRepeats=1]- times the pattern tiles within one separation band (>=1)
  * @param {boolean} [opts.invert=false]    - invert depth (swap near/far)
  * @param {boolean} [opts.popIn=false]     - false = shape pops OUT toward viewer, true = sinks IN
@@ -28,8 +38,10 @@
 export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts = {}) {
   const width = Math.max(1, Math.round(opts.width || 800));
   const height = Math.max(1, Math.round(opts.height || 600));
-  const eyeSep = Math.max(2, Math.round(opts.eyeSep || 300));
-  const mu = clamp(opts.mu ?? 1 / 3, 0.01, 0.9);
+  // Eye separation and depth strength follow the rules learned from references:
+  // background separation = SEP_FRACTION * width, depth factor = DEPTH_MU.
+  const mu = DEPTH_MU;
+  const eyeSep = Math.max(4, Math.round(2 * SEP_FRACTION * width)); // s0 = eyeSep/2
   const patternRepeats = Math.max(1, Math.round(opts.patternRepeats || 1));
   const invert = !!opts.invert;
   const popIn = !!opts.popIn;

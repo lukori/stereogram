@@ -11,10 +11,6 @@ const els = {
   depthDrop: $('depthDrop'),
   depthInput: $('depthInput'),
   depthThumb: $('depthThumb'),
-  depthStrength: $('depthStrength'),
-  depthStrengthVal: $('depthStrengthVal'),
-  eyeSep: $('eyeSep'),
-  eyeSepVal: $('eyeSepVal'),
   patternScale: $('patternScale'),
   patternScaleVal: $('patternScaleVal'),
   outWidth: $('outWidth'),
@@ -31,8 +27,6 @@ const els = {
 const sources = { pattern: null, depth: null };
 
 const DEFAULTS = {
-  depthStrength: 0.33,
-  eyeSep: 300,
   patternScale: 1, // pattern repeats per separation band
   outWidth: 900,
   outHeight: 600,
@@ -87,8 +81,6 @@ function regenerate() {
   const opts = {
     width: clampNum(els.outWidth.value, 100, 2400, 900),
     height: clampNum(els.outHeight.value, 100, 2400, 600),
-    eyeSep: Number(els.eyeSep.value),
-    mu: Number(els.depthStrength.value),
     patternRepeats: Number(els.patternScale.value),
     invert: els.invert.checked,
     popIn: els.popIn.checked,
@@ -164,19 +156,14 @@ function wireDropzone(kind, dropEl, inputEl) {
 // --- slider/label sync -----------------------------------------------------
 
 function syncLabels() {
-  els.depthStrengthVal.textContent = Number(els.depthStrength.value).toFixed(2);
-  els.eyeSepVal.textContent = `${els.eyeSep.value} px`;
   els.patternScaleVal.textContent = `${Number(els.patternScale.value)}×`;
 }
 
 function wireControls() {
-  const live = [els.depthStrength, els.eyeSep, els.patternScale];
-  live.forEach((el) =>
-    el.addEventListener('input', () => {
-      syncLabels();
-      regenerateDebounced();
-    })
-  );
+  els.patternScale.addEventListener('input', () => {
+    syncLabels();
+    regenerateDebounced();
+  });
 
   [els.outWidth, els.outHeight].forEach((el) =>
     el.addEventListener('input', regenerateDebounced)
@@ -196,8 +183,6 @@ els.downloadBtn.addEventListener('click', () => {
 });
 
 els.resetBtn.addEventListener('click', () => {
-  els.depthStrength.value = DEFAULTS.depthStrength;
-  els.eyeSep.value = DEFAULTS.eyeSep;
   els.patternScale.value = DEFAULTS.patternScale;
   els.outWidth.value = DEFAULTS.outWidth;
   els.outHeight.value = DEFAULTS.outHeight;
