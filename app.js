@@ -24,7 +24,7 @@ const els = {
   output:          $('output'),
 };
 
-const sources = { pattern: null, depth: null };
+const sources = { pattern: null, depth: null, patternIsGenerated: false };
 
 const DEFAULTS = {
   patternScale: 1,
@@ -87,8 +87,9 @@ function regenerate() {
   const opts = {
     width:          clampNum(els.outWidth.value, 100, 2400, 900),
     height:         clampNum(els.outHeight.value, 100, 2400, 600),
-    patternRepeats: Number(els.patternScale.value),
-    invert:         els.invert.checked,
+    patternRepeats:  Number(els.patternScale.value),
+    aperiodicTexture: sources.patternIsGenerated,
+    invert:          els.invert.checked,
     popIn:          els.popIn.checked,
   };
 
@@ -149,7 +150,8 @@ function generatePattern() {
     ctx.fill();
   }
 
-  sources.pattern = c;
+  sources.pattern          = c;
+  sources.patternIsGenerated = true;
   els.patternThumb.src    = c.toDataURL();
   els.patternThumb.hidden = false;
   els.patternDrop.classList.add('has-image');
@@ -169,6 +171,7 @@ async function handleFile(kind, file) {
     thumb.src    = dataURL;
     thumb.hidden = false;
     drop.classList.add('has-image');
+    if (kind === 'pattern') sources.patternIsGenerated = false;
 
     if (kind === 'depth') {
       const aspect = canvas.height / canvas.width;

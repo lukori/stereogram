@@ -29,7 +29,8 @@ export const DEPTH_MU = 0.36;
  * @param {Object} opts
  * @param {number}  [opts.width=800]
  * @param {number}  [opts.height=600]
- * @param {number}  [opts.patternRepeats=1] - dot-size control: higher = smaller dots
+ * @param {number}  [opts.patternRepeats=1] - for uploaded: copies per band; for generated: dot-size
+ * @param {boolean} [opts.aperiodicTexture=false] - true = generated (random dots); false = uploaded (use actual texture)
  * @param {boolean} [opts.invert=false]
  * @param {boolean} [opts.popIn=false]
  */
@@ -38,7 +39,8 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
   const height = Math.max(1, Math.round(opts.height || 600));
   const mu     = DEPTH_MU;
   const eyeSep = Math.max(4, Math.round(2 * SEP_FRACTION * width));
-  const reps   = Math.max(1, Math.round(opts.patternRepeats || 1));
+  const reps      = Math.max(1, Math.round(opts.patternRepeats || 1));
+  const aperiodic = !!opts.aperiodicTexture;
   const invert = !!opts.invert;
   const popIn  = !!opts.popIn;
 
@@ -61,7 +63,7 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
   // only (repeat-x). This strip has no internal horizontal periodicity, so
   // the only autocorrelation peak in the output is the stereo signal at s0.
   const s0 = Math.max(2, separation(0, mu, eyeSep));
-  const patLookup = buildPatternLookup(patternCanvas, width, height, s0, reps);
+  const patLookup = buildPatternLookup(patternCanvas, width, height, s0, reps, aperiodic);
   const pat = patLookup.data;
 
   // --- Stereogram output ----------------------------------------------------
@@ -141,27 +143,49 @@ function sampleToImageData(src, w, h) {
 }
 
 /**
- * Build an aperiodic pattern lookup.
+ * Build the pattern lookup canvas.
  *
- * The source pattern is used ONLY as a color palette — its spatial structure
- * is discarded. Colors are placed as random dots at non-grid positions inside
- * a strip (period × height). That strip is tiled horizontally (repeat-x) at
- * period = s0, so the output's only autocorrelation peak is the stereo signal.
- *
- * `reps` scales the dot size: reps=1 → largest dots; reps=6 → finest texture.
+ * Two paths:
+ *  aperiodic=true  (Generate Pattern): extract palette, render random fine dots.
+ *                  Only the stereo algorithm's links create periodicity → clean fusion.
+ *  aperiodic=false (uploaded image):   tile the actual texture, band-width locked to
+ *                  s0 so the ONLY horizontal period is the stereo separation (no ghosting).
+ *                  `reps` = how many copies of the pattern fit within one band.
  */
-function buildPatternLookup(patternCanvas, w, h, period, reps) {
-  const palette = samplePalette(patternCanvas, 500);
-
-  // One aperiodic strip, period wide and h tall (no Y tiling either).
-  const strip = aperiodicStrip(palette, Math.round(period), h, reps);
-
+function buildPatternLookup(patternCanvas, w, h, period, reps, aperiodic) {
   const c   = document.createElement('canvas');
   c.width   = w;
   c.height  = h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = ctx.createPattern(strip, 'repeat-x'); // X-only tiling at period
-  ctx.fillRect(0, 0, w, h);
+  const s0  = Math.max(1, Math.round(period));
+
+  if (aperiodic) {
+    // --- Generated pattern: aperiodic random-dot strip tiled in X only -------
+    const palette = samplePalette(patternCanvas, 500);
+    const strip   = aperiodicStrip(palette, s0, h, reps);
+    ctx.fillStyle = ctx.createPattern(strip, 'repeat-x');
+    ctx.fillRect(0, 0, w, h);
+
+  } else {
+    // --- Uploaded pattern: tile the real texture, band-locked to s0 ----------
+    // The tile is exactly s0 wide so the pattern's own horizontal period equals
+    // the stereo separation — no competing peaks, no ghosting.
+    const copyW = s0 / reps;
+    const copyH = Math.max(1, Math.round((patternCanvas.height * copyW) / patternCanvas.width));
+
+    const tile  = document.createElement('canvas');
+    tile.width  = s0;
+    tile.height = copyH;
+    const tctx  = tile.getContext('2d');
+    tctx.imageSmoothingEnabled = true;
+    for (let i = 0; i < reps; i++) {
+      tctx.drawImage(patternCanvas, i * copyW, 0, copyW, copyH);
+    }
+
+    ctx.fillStyle = ctx.createPattern(tile, 'repeat');
+    ctx.fillRect(0, 0, w, h);
+  }
+
   return ctx.getImageData(0, 0, w, h);
 }
 
