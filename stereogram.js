@@ -2,51 +2,47 @@
 // Core texture-mapped Single Image Stereogram (SIS) generator.
 //
 // Algorithm: the classic Thimbleby–Inglis–Witten separation method
-// ("Displaying 3D Images: Algorithms for Single Image Random Dot Stereograms"),
-// adapted to seed pixel colors from an uploaded repeating pattern tile instead
-// of random dots. The result is a flat repeating-pattern image that warps around
-// a hidden 3D shape encoded by the depth map.
+// ("Displaying 3D Images: Algorithms for Single Image Random Dot Stereograms").
 //
-// Depth convention: Z is the normalized luminance of the depth map in [0,1].
-// White (Z=1) = near (small separation, pops toward the viewer); black = far.
+// Depth convention: White (Z=1) = near (pops toward viewer); black = far.
 //
 // RULES (measured from the reference stereograms in references/):
-//   - Background separation is a fixed fraction of the output width — the two
-//     real Magic-Eye references both sit at ~13% of width (~7.6 repeats across).
-//   - Depth strength mu ~ 0.33–0.40 in those references; we use 0.36.
-// These are hard-coded so the output matches the references without manual
-// "eye separation" / "depth strength" tuning.
+//   - Background separation = 13% of output width (~7.6 repeats across).
+//   - Depth strength mu = 0.36.
+//
+// TEXTURE: the pattern canvas is used only as a COLOR SOURCE. Its palette is
+// extracted and re-laid as random dots at non-grid positions, so the lookup
+// canvas has NO internal periodicity. The only autocorrelation peak in the
+// output is the one introduced by the stereo algorithm (at the separation s0
+// for the background, smaller inside raised regions). This matches how the
+// reference stereograms work and prevents false/inverted fusion.
 
-// Background separation s0 as a fraction of output width (s0 = SEP_FRACTION * width).
 export const SEP_FRACTION = 0.13;
-// Depth factor (apparent relief). Larger = more pop, harder to fuse.
 export const DEPTH_MU = 0.36;
 
 /**
  * Generate a stereogram into an output canvas.
  *
- * @param {CanvasImageSource & {width:number,height:number}} patternCanvas - pattern tile
+ * @param {CanvasImageSource & {width:number,height:number}} patternCanvas - color source
  * @param {CanvasImageSource & {width:number,height:number}} depthCanvas   - grayscale depth map
- * @param {HTMLCanvasElement} outCanvas - destination canvas (resized in place)
+ * @param {HTMLCanvasElement} outCanvas - destination (resized in place)
  * @param {Object} opts
- * @param {number}  [opts.width=800]       - output width in px
- * @param {number}  [opts.height=600]      - output height in px
- * @param {number}  [opts.patternRepeats=1]- times the pattern tiles within one separation band (>=1)
- * @param {boolean} [opts.invert=false]    - invert depth (swap near/far)
- * @param {boolean} [opts.popIn=false]     - false = shape pops OUT toward viewer, true = sinks IN
+ * @param {number}  [opts.width=800]
+ * @param {number}  [opts.height=600]
+ * @param {number}  [opts.patternRepeats=1] - dot-size control: higher = smaller dots
+ * @param {boolean} [opts.invert=false]
+ * @param {boolean} [opts.popIn=false]
  */
 export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts = {}) {
-  const width = Math.max(1, Math.round(opts.width || 800));
+  const width  = Math.max(1, Math.round(opts.width  || 800));
   const height = Math.max(1, Math.round(opts.height || 600));
-  // Eye separation and depth strength follow the rules learned from references:
-  // background separation = SEP_FRACTION * width, depth factor = DEPTH_MU.
-  const mu = DEPTH_MU;
-  const eyeSep = Math.max(4, Math.round(2 * SEP_FRACTION * width)); // s0 = eyeSep/2
-  const patternRepeats = Math.max(1, Math.round(opts.patternRepeats || 1));
+  const mu     = DEPTH_MU;
+  const eyeSep = Math.max(4, Math.round(2 * SEP_FRACTION * width));
+  const reps   = Math.max(1, Math.round(opts.patternRepeats || 1));
   const invert = !!opts.invert;
-  const popIn = !!opts.popIn;
+  const popIn  = !!opts.popIn;
 
-  // --- Read depth map, resampled to the output size -> normalized Z [0,1] ----
+  // --- Depth map -> normalized Z [0,1] per pixel ----------------------------
   const depthData = sampleToImageData(depthCanvas, width, height);
   const depth = new Float32Array(width * height);
   {
@@ -54,27 +50,28 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
     for (let i = 0, p = 0; i < depth.length; i++, p += 4) {
       let z = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) / 255;
       if (invert) z = 1 - z;
-      if (popIn) z = 1 - z; // sink the shape in instead of popping it out
+      if (popIn)  z = 1 - z;
       depth[i] = z;
     }
   }
 
-  // --- Pattern lookup canvas tiled across the full output size ---------------
-  // CRITICAL: the pattern's horizontal period must equal the far-plane (background)
-  // separation s0, otherwise the unconstrained pixels carry a second, competing
-  // period that shows up as a ghosted / doubled wallpaper. Lock the band width to s0.
+  // --- Aperiodic pattern lookup ---------------------------------------------
+  // s0 = background separation. We build one strip (s0 wide, height tall) of
+  // random-dot texture using the pattern's color palette, then tile it in X
+  // only (repeat-x). This strip has no internal horizontal periodicity, so
+  // the only autocorrelation peak in the output is the stereo signal at s0.
   const s0 = Math.max(2, separation(0, mu, eyeSep));
-  const patLookup = buildPatternLookup(patternCanvas, width, height, s0, patternRepeats);
+  const patLookup = buildPatternLookup(patternCanvas, width, height, s0, reps);
   const pat = patLookup.data;
 
-  // --- Output buffer ---------------------------------------------------------
-  outCanvas.width = width;
+  // --- Stereogram output ----------------------------------------------------
+  outCanvas.width  = width;
   outCanvas.height = height;
-  const octx = outCanvas.getContext('2d');
+  const octx   = outCanvas.getContext('2d');
   const outImg = octx.createImageData(width, height);
-  const out = outImg.data;
+  const out    = outImg.data;
 
-  const same = new Int32Array(width); // per-row links: same[x] points to a pixel of equal color
+  const same = new Int32Array(width);
 
   for (let y = 0; y < height; y++) {
     const row = y * width;
@@ -82,50 +79,44 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
     for (let x = 0; x < width; x++) same[x] = x;
 
     for (let x = 0; x < width; x++) {
-      const z = depth[row + x];
+      const z   = depth[row + x];
       const sep = separation(z, mu, eyeSep);
 
-      const left = x - (sep >> 1);
+      const left  = x - (sep >> 1);
       const right = left + sep;
 
       if (left >= 0 && right < width) {
-        // Hidden-surface removal: a nearer surface between the two image points
-        // would occlude this constraint, so only link when the point is visible.
         let visible = true;
         let t = 1;
-        let zt;
         do {
-          zt = z + (2 * (2 - mu * z) * t) / (mu * eyeSep);
-          const xl = x - t;
-          const xr = x + t;
-          visible =
-            (xl < 0 || depth[row + xl] < zt) && (xr >= width || depth[row + xr] < zt);
+          const zt = z + (2 * (2 - mu * z) * t) / (mu * eyeSep);
+          const xl = x - t, xr = x + t;
+          visible = (xl < 0 || depth[row + xl] < zt) &&
+                    (xr >= width || depth[row + xr] < zt);
           t++;
-        } while (visible && zt < 1);
+          if (zt >= 1) break;
+        } while (visible);
 
-        if (visible) {
-          // Link toward the right so resolution (right -> left) finds it already done.
-          same[left] = right;
-        }
+        if (visible) same[left] = right;
       }
     }
 
-    // Resolve colors right -> left following the links.
+    // Resolve right -> left: constrained pixels copy from their linked partner;
+    // unconstrained pixels seed from the aperiodic lookup.
     for (let x = width - 1; x >= 0; x--) {
-      const outIdx = (row + x) << 2;
-      let srcIdx;
+      const oi = (row + x) << 2;
       if (same[x] === x) {
-        srcIdx = (row + x) << 2; // unconstrained: seed from the pattern
-        out[outIdx] = pat[srcIdx];
-        out[outIdx + 1] = pat[srcIdx + 1];
-        out[outIdx + 2] = pat[srcIdx + 2];
+        const pi = (row + x) << 2;
+        out[oi]     = pat[pi];
+        out[oi + 1] = pat[pi + 1];
+        out[oi + 2] = pat[pi + 2];
       } else {
-        srcIdx = (row + same[x]) << 2; // copy from the already-resolved linked pixel
-        out[outIdx] = out[srcIdx];
-        out[outIdx + 1] = out[srcIdx + 1];
-        out[outIdx + 2] = out[srcIdx + 2];
+        const si = (row + same[x]) << 2;
+        out[oi]     = out[si];
+        out[oi + 1] = out[si + 1];
+        out[oi + 2] = out[si + 2];
       }
-      out[outIdx + 3] = 255;
+      out[oi + 3] = 255;
     }
   }
 
@@ -135,20 +126,14 @@ export function generateStereogram(patternCanvas, depthCanvas, outCanvas, opts =
 
 // --- helpers ---------------------------------------------------------------
 
-/** Stereo separation in px for a normalized depth z. Larger z -> nearer -> smaller sep. */
 function separation(z, mu, eyeSep) {
   return Math.round(((1 - mu * z) * eyeSep) / (2 - mu * z));
 }
 
-function clamp(v, lo, hi) {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
-/** Draw a source canvas/image scaled to (w,h) and return its ImageData. */
 function sampleToImageData(src, w, h) {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
+  const c   = document.createElement('canvas');
+  c.width   = w;
+  c.height  = h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(src, 0, 0, w, h);
@@ -156,37 +141,82 @@ function sampleToImageData(src, w, h) {
 }
 
 /**
- * Tile the pattern across a (w,h) canvas with a fixed horizontal period and
- * return ImageData, so any output pixel has a defined seed color.
+ * Build an aperiodic pattern lookup.
  *
- * The tile band is exactly `period` px wide (= the background separation), with
- * the pattern drawn `reps` times across it. Because the band width matches the
- * stereo separation, the resulting wallpaper resolves cleanly with no competing
- * period (no ghosting/doubling). `reps` controls how small the pattern looks.
+ * The source pattern is used ONLY as a color palette — its spatial structure
+ * is discarded. Colors are placed as random dots at non-grid positions inside
+ * a strip (period × height). That strip is tiled horizontally (repeat-x) at
+ * period = s0, so the output's only autocorrelation peak is the stereo signal.
+ *
+ * `reps` scales the dot size: reps=1 → largest dots; reps=6 → finest texture.
  */
 function buildPatternLookup(patternCanvas, w, h, period, reps) {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
+  const palette = samplePalette(patternCanvas, 500);
+
+  // One aperiodic strip, period wide and h tall (no Y tiling either).
+  const strip = aperiodicStrip(palette, Math.round(period), h, reps);
+
+  const c   = document.createElement('canvas');
+  c.width   = w;
+  c.height  = h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = ctx.createPattern(strip, 'repeat-x'); // X-only tiling at period
+  ctx.fillRect(0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
+}
 
-  const tileW = Math.max(1, Math.round(period));
-  const copyW = tileW / reps; // each pattern copy fills 1/reps of the band
-  const copyH = (patternCanvas.height * copyW) / patternCanvas.width; // keep aspect
-  const tileH = Math.max(1, Math.round(copyH));
+/**
+ * Render random colored dots at uniformly random positions onto a (w × h) canvas.
+ * No grid, no internal period — only the color palette comes from the source pattern.
+ */
+function aperiodicStrip(palette, w, h, reps) {
+  const c   = document.createElement('canvas');
+  c.width   = w;
+  c.height  = h;
+  const ctx = c.getContext('2d');
 
-  const tile = document.createElement('canvas');
-  tile.width = tileW;
-  tile.height = tileH;
-  const tctx = tile.getContext('2d');
-  tctx.imageSmoothingEnabled = true;
-  // Draw `reps` identical copies side by side; the band wraps seamlessly at tileW.
-  for (let i = 0; i < reps; i++) {
-    tctx.drawImage(patternCanvas, i * copyW, 0, copyW, tileH);
-  }
-
-  ctx.fillStyle = ctx.createPattern(tile, 'repeat');
+  // Background: darkest color in palette
+  const bg = palette.reduce((a, b) => (a[0]+a[1]+a[2]) < (b[0]+b[1]+b[2]) ? a : b);
+  ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
   ctx.fillRect(0, 0, w, h);
 
-  return ctx.getImageData(0, 0, w, h);
+  // Dot radius scaled by reps (higher reps = smaller dots = finer texture)
+  const maxR = Math.max(1.5, w / (8 * reps));
+  const minR = Math.max(1,   maxR * 0.35);
+  const avgR = (minR + maxR) / 2;
+  const count = Math.round((w * h) / (Math.PI * avgR * avgR * 1.6));
+
+  for (let i = 0; i < count; i++) {
+    const col = palette[Math.floor(Math.random() * palette.length)];
+    ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+    ctx.beginPath();
+    ctx.arc(
+      Math.random() * w,
+      Math.random() * h,
+      minR + Math.random() * (maxR - minR),
+      0, Math.PI * 2
+    );
+    ctx.fill();
+  }
+  return c;
+}
+
+/**
+ * Sample n colors from src as [r,g,b] triples.
+ * Used to extract the color palette for the aperiodic dot texture.
+ */
+export function samplePalette(src, n) {
+  const c   = document.createElement('canvas');
+  const f   = Math.min(1, Math.sqrt(n / (src.width * src.height + 1)));
+  c.width   = Math.max(1, Math.round(src.width  * f));
+  c.height  = Math.max(1, Math.round(src.height * f));
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  const d   = c.getContext('2d', { willReadFrequently: true })
+               .getImageData(0, 0, c.width, c.height).data;
+  const out = [];
+  const stride = Math.max(1, Math.floor(d.length / 4 / n));
+  for (let i = 0; i < d.length; i += stride * 4) {
+    out.push([d[i], d[i + 1], d[i + 2]]);
+  }
+  return out.length ? out : [[180, 100, 40]];
 }
