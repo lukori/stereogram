@@ -180,9 +180,10 @@ function aperiodicStrip(palette, w, h, reps) {
   ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
   ctx.fillRect(0, 0, w, h);
 
-  // Dot radius scaled by reps (higher reps = smaller dots = finer texture)
-  const maxR = Math.max(1.5, w / (8 * reps));
-  const minR = Math.max(1,   maxR * 0.35);
+  // Dot radius: stay close to reference noise grain (1–3 px).
+  // reps=1 → up to 3px; reps=6 → up to 1.5px (floor). Higher reps = finer.
+  const maxR = Math.max(1.5, 3 / reps);
+  const minR = 1;
   const avgR = (minR + maxR) / 2;
   const count = Math.round((w * h) / (Math.PI * avgR * avgR * 1.6));
 
